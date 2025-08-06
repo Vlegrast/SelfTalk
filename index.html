@@ -237,7 +237,7 @@
 <div class="controls">
   <div class="input-group">
     <label for="nameInput">Your Name:</label>
-    <input type="text" id="nameInput" placeholder="Enter your name or nickname" />
+    <input type="text" id="nameInput" placeholder="Enter your name or nickname" onclick="if(this.value === 'Anon') this.value = ''; this.select();" />
   </div>
 
   <div class="input-group">
