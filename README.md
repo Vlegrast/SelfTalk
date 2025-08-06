@@ -4,4 +4,4 @@ feel free to look into it!
 it can only be visibile to yourself.
 
 ## Live Demo
-[Try it here!!](https://vlegrast.github.io/SelfTalkApp/)
+[Try it here!!]
