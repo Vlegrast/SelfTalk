@@ -111,8 +111,8 @@
       border: none;
       outline: none;
       transition: background-color 0.3s ease, color 0.3s ease;
-      background-color: #fff; /* default white */
-      color: #000;
+      background-color: #2b2b2b; /* default white */
+      color: #ccc;
     }
     .controls {
       margin-top: 10px;
@@ -185,10 +185,23 @@
       align-items: center;
       justify-content: center;
       transition: border-color 0.3s ease;
-      background-color: #ddd;
+      background-color: transparent;
     }
     .char-circle.selected {
       border-color: #fff;
+    }
+    /* ▼ ADD: Triangle above selected character */
+    .char-circle.selected::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+     width: 0;
+     height: 0;
+     border-left: 6px solid transparent;
+     border-right: 6px solid transparent;
+     border-bottom: 8px solid currentColor;
     }
     .char-avatar {
       font-size: 20px;
@@ -301,9 +314,12 @@
 <div style="margin-top:10px;">
   <button id="addCharacterBtn">Add Character</button>
   <button id="deleteCharacterBtn">Delete Character</button>
+  <button id="saveCharacterBtn">Save Character</button>
 </div>
 
 <script>
+
+document.addEventListener('DOMContentLoaded', () => {
   const chatContainer = document.getElementById('chatContainer');
   const messageInput = document.getElementById('messageInput');
   const sendBtn = document.getElementById('sendBtn');
@@ -317,17 +333,41 @@
   const characterCircles = document.getElementById('characterCircles');
   const addCharacterBtn = document.getElementById('addCharacterBtn');
   const deleteCharacterBtn = document.getElementById('deleteCharacterBtn');
+  const saveCharacterBtn = document.getElementById('saveCharacterBtn'); // ← Add this line
+  
 
   const MAX_CHARACTERS = 25;
+
 
   let chatData = JSON.parse(localStorage.getItem('chatData')) || [];
   let characters = JSON.parse(localStorage.getItem('characters')) || [];
 
   let currentCharacterIndex = -1;
-
   let currentAvatarEmoji = '🙂';
   let currentAvatarImage = null;
   let currentSide = 'right';
+
+  if (saveCharacterBtn) {
+  saveCharacterBtn.addEventListener('click', () => { // ← And this block
+    if (currentCharacterIndex === -1) {
+     alert('No character selected to save.');
+     return;
+   }
+
+
+   const char = characters[currentCharacterIndex];
+   char.name = nameInput.value.trim() || 'Anon';
+   char.color = colorInput.value || '#ffffff';
+   char.avatarEmoji = currentAvatarEmoji;
+   char.avatarImage = currentAvatarImage;
+   char.side = currentSide;
+
+   saveAll();
+   renderCharacters();
+   alert('Character slot saved!');
+ });
+}
+
 
   function adjustTextColor(bgColor) {
     // Convert hex to RGB
@@ -394,58 +434,113 @@
 
   // Render chat messages
   function renderChat() {
-    chatContainer.innerHTML = '';
-    chatData.forEach(msg => {
-      const container = document.createElement('div');
-      container.classList.add('chat-message-container');
-      container.classList.add(msg.side);
+  chatContainer.innerHTML = '';
+  let lastDate = null;
 
-      // Header with avatar, name, time
-      const header = document.createElement('div');
-      header.classList.add('msg-header');
+  chatData.forEach((msg, index) => {
+    const msgDate = new Date(msg.timestamp || Date.now());
+    const msgDateStr = msgDate.toDateString(); // e.g., "Thu Aug 7 2025"
 
-      const avatarDiv = document.createElement('div');
-      avatarDiv.classList.add('avatar-header');
+    // Insert date separator if date changed
+    if (msgDateStr !== lastDate) {
+      const dateDiv = document.createElement('div');
+      dateDiv.style.textAlign = 'center';
+      dateDiv.style.fontSize = '10px';
+      dateDiv.style.color = '#aaa';
+      dateDiv.style.margin = '10px 0';
+      dateDiv.textContent = msgDate.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      chatContainer.appendChild(dateDiv);
+      lastDate = msgDateStr;
+    }
 
-      if (msg.avatarImage) {
-        const img = document.createElement('img');
-        img.src = msg.avatarImage;
-        avatarDiv.appendChild(img);
-      } else if (msg.avatarEmoji) {
-        avatarDiv.textContent = msg.avatarEmoji;
-      } else {
-        avatarDiv.textContent = '🙂';
+    const container = document.createElement('div');
+    container.classList.add('chat-message-container');
+    container.classList.add(msg.side);
+    container.dataset.index = index;
+
+    const header = document.createElement('div');
+    header.classList.add('msg-header');
+
+    const avatarDiv = document.createElement('div');
+    avatarDiv.classList.add('avatar-header');
+
+    if (msg.avatarImage) {
+      const img = document.createElement('img');
+      img.src = msg.avatarImage;
+      avatarDiv.appendChild(img);
+    } else {
+      avatarDiv.textContent = msg.avatarEmoji || '🙂';
+    }
+
+    const nameSpan = document.createElement('span');
+    nameSpan.classList.add('name-header');
+    nameSpan.textContent = msg.name;
+
+    const timeSpan = document.createElement('span');
+    timeSpan.classList.add('time-header');
+    timeSpan.textContent = msg.time;
+
+    header.appendChild(avatarDiv);
+    header.appendChild(nameSpan);
+    header.appendChild(timeSpan);
+
+    const bubble = document.createElement('div');
+    bubble.classList.add('bubble');
+    bubble.classList.add(msg.side);
+    bubble.style.backgroundColor = msg.color;
+    bubble.style.color = adjustTextColor(msg.color);
+    bubble.textContent = msg.message;
+
+    // 💬 Bubble click: Flip side and update character
+    bubble.addEventListener('click', () => {
+      // Flip message side
+      const newSide = msg.side === 'left' ? 'right' : 'left';
+      msg.side = newSide;
+
+      // Try to match a character slot
+      const matchedIndex = characters.findIndex(c =>
+        c.name === msg.name &&
+        c.color === msg.color &&
+        (c.avatarEmoji === msg.avatarEmoji || c.avatarImage === msg.avatarImage)
+      );
+
+      if (matchedIndex !== -1) {
+        currentCharacterIndex = matchedIndex;
+        characters[matchedIndex].side = msg.side;
+        currentSide = msg.side;
+        updateCharacterInputs();
+        renderCharacters();
       }
 
-      const nameSpan = document.createElement('span');
-      nameSpan.classList.add('name-header');
-      nameSpan.textContent = msg.name;
 
-      const timeSpan = document.createElement('span');
-      timeSpan.classList.add('time-header');
-      timeSpan.textContent = msg.time;
+      // update messages to the new side
+      chatData.forEach(m => {
+        if (
+          m.name === msg.name &&
+          m.avatarEmoji === m.avatarEmoji &&
+          m.avatarImage === m.avatarImage
+        ) {
+          m.side = newSide;
+        }
+      });
 
-      header.appendChild(avatarDiv);
-      header.appendChild(nameSpan);
-      header.appendChild(timeSpan);
 
-      // Message bubble
-      const bubble = document.createElement('div');
-      bubble.classList.add('bubble');
-      bubble.classList.add(msg.side);
-      bubble.style.backgroundColor = msg.color;
-
-      const textColor = adjustTextColor(msg.color);
-      bubble.style.color = textColor;
-
-      bubble.textContent = msg.message;
-
-      container.appendChild(header);
-      container.appendChild(bubble);
-      chatContainer.appendChild(container);
+      saveAll();
+      renderChat();
     });
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-  }
+
+    container.appendChild(header);
+    container.appendChild(bubble);
+    chatContainer.appendChild(container);
+  });
+
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
 
   // Save chatData and characters to localStorage
   function saveAll() {
@@ -459,7 +554,19 @@
     characters.forEach((char, i) => {
       const circle = document.createElement('div');
       circle.classList.add('char-circle');
-      if (i === currentCharacterIndex) circle.classList.add('selected');
+      if (i === currentCharacterIndex) {
+  circle.classList.add('selected');
+  circle.style.backgroundColor = char.color || '#ddd';
+  circle.style.color = adjustTextColor(char.color || '#ddd');
+} else {
+  circle.style.backgroundColor = '#ddd';
+  circle.style.color = '#000';
+}
+
+      // Match bubble color
+     circle.style.backgroundColor = char.color || '#ddd';
+     circle.style.color = adjustTextColor(char.color || '#ddd');
+
       circle.title = char.name || 'Unnamed';
 
       const avatarDiv = document.createElement('div');
@@ -553,9 +660,23 @@
     char.side = side;
     char.avatarEmoji = avatarEmoji;
     char.avatarImage = avatarImage;
+    
+    // ✅ Update all previous messages from this character
+chatData.forEach(msg => {
+  if (
+    msg.name === char.name &&
+    ((msg.avatarEmoji && msg.avatarEmoji === char.avatarEmoji) ||
+     (msg.avatarImage && msg.avatarImage === char.avatarImage))
+  ) {
+    msg.side = side;
+    msg.color = color;
+  }
+});
+
 
     // Save chat message
     chatData.push({
+      characterId: char.id,
       name,
       message: msgText,
       color,
@@ -563,6 +684,7 @@
       avatarEmoji,
       avatarImage,
       time,
+      timestamp: Date.now(),
     });
 
     // Save & render
@@ -595,9 +717,18 @@
       sideToggle.classList.add('right');
     }
     if (currentCharacterIndex >= 0 && currentCharacterIndex < characters.length) {
+      const char = characters[currentCharacterIndex];
       characters[currentCharacterIndex].side = currentSide;
-      saveAll();
-      renderCharacters();
+    
+      chatData.forEach(msg => {
+      if (msg.characterId === char.id) {
+        msg.side = currentSide;
+      }
+    });
+
+    saveAll();
+    renderCharacters();
+    renderChat();
     }
   });
 
@@ -606,11 +737,21 @@
     if (e.target.classList.contains('emojiOption')) {
       currentAvatarEmoji = e.target.textContent;
       currentAvatarImage = null; // Clear uploaded avatar if any
+      
       selectEmojiInPicker(currentAvatarEmoji);
 
       if (currentCharacterIndex >= 0 && currentCharacterIndex < characters.length) {
-        characters[currentCharacterIndex].avatarEmoji = currentAvatarEmoji;
-        characters[currentCharacterIndex].avatarImage = null;
+        const char = characters[currentCharacterIndex]
+        char.avatarEmoji = currentAvatarEmoji;
+        char.avatarImage = null;
+
+        chatData.forEach(msg => {
+          if (msg.characterId === char.id) {
+           msg.avatarEmoji = currentAvatarEmoji;
+           msg.avatarImage = null;
+        }
+      });
+
         saveAll();
         renderCharacters();
       }
@@ -671,12 +812,14 @@
       return;
     }
     const newChar = {
+      id: Date.now() + Math.random(),
       name: 'Anon',
       color: '#ffffff',
       avatarEmoji: '🙂',
       avatarImage: null,
       side: 'right',
     };
+
     characters.push(newChar);
     currentCharacterIndex = characters.length - 1;
     updateCharacterInputs();
@@ -733,7 +876,7 @@
   }
 
   init();
-
+});
 </script>
 
 </body>
