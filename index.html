@@ -284,7 +284,12 @@
 <div class="controls">
   <div class="input-group">
     <label for="nameInput">Your Name:</label>
-    <input type="text" id="nameInput" placeholder="Enter your name or nickname" onclick="if(this.value === 'Anon') this.value = ''; this.select();" />
+    <input 
+    type="text" 
+    id="nameInput" 
+    placeholder="Enter your name or nickname" 
+    onclick="if(this.value === 'Anon') this.value = ''; this.select();" 
+    />
   </div>
 
   <div class="input-group">
@@ -348,25 +353,43 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentSide = 'right';
 
   if (saveCharacterBtn) {
-  saveCharacterBtn.addEventListener('click', () => { // ← And this block
-    if (currentCharacterIndex === -1) {
-     alert('No character selected to save.');
-     return;
-   }
+    saveCharacterBtn.addEventListener('click', () => { // ← And this block
+       if (currentCharacterIndex === -1) {
+          alert('No character selected to save.');
+          return;
+       }
 
+       const char = characters[currentCharacterIndex];
+       char.name = nameInput.value.trim() || 'Anon';
+       char.color = colorInput.value || '#ffffff';
+       char.avatarEmoji = currentAvatarEmoji;
+       char.avatarImage = currentAvatarImage;
+       char.side = currentSide;
+ 
+      saveAll();
+      renderCharacters();
+      alert('Character slot saved!');
+    });
+  }
 
-   const char = characters[currentCharacterIndex];
-   char.name = nameInput.value.trim() || 'Anon';
-   char.color = colorInput.value || '#ffffff';
-   char.avatarEmoji = currentAvatarEmoji;
-   char.avatarImage = currentAvatarImage;
-   char.side = currentSide;
+  nameInput.addEventListener('input', (e) => {
+    if (currentCharacterIndex >= 0 && currentCharacterIndex < characters.length) {
+      const char = characters[currentCharacterIndex];
+      const newName = e.target.value;
 
-   saveAll();
-   renderCharacters();
-   alert('Character slot saved!');
- });
-}
+      char.name = newName;
+
+      chatData.forEach(msg => {
+        if (msg.characterId === char.id) {
+          msg.name = newName;
+        }
+      });
+      
+      saveAll();
+      renderCharacters();
+      renderChat();
+    }
+  });
 
 
   function adjustTextColor(bgColor) {
