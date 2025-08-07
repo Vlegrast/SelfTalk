@@ -346,6 +346,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let chatData = JSON.parse(localStorage.getItem('chatData')) || [];
   let characters = JSON.parse(localStorage.getItem('characters')) || [];
+ 
+  characters.forEach(char => {
+  if (!char.id) {
+    char.id = Date.now() + Math.random();
+  }
+});
 
   let currentCharacterIndex = -1;
   let currentAvatarEmoji = '🙂';
@@ -366,8 +372,11 @@ document.addEventListener('DOMContentLoaded', () => {
        char.avatarImage = currentAvatarImage;
        char.side = currentSide;
  
+       applyCharacterChangesToMessages(char);
+
       saveAll();
       renderCharacters();
+      renderChat();
       alert('Character slot saved!');
     });
   }
@@ -378,12 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const newName = e.target.value;
 
       char.name = newName;
+      applyCharacterChangesToMessages(char);
 
-      chatData.forEach(msg => {
-        if (msg.characterId === char.id) {
-          msg.name = newName;
-        }
-      });
       
       saveAll();
       renderCharacters();
@@ -526,11 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
       msg.side = newSide;
 
       // Try to match a character slot
-      const matchedIndex = characters.findIndex(c =>
-        c.name === msg.name &&
-        c.color === msg.color &&
-        (c.avatarEmoji === msg.avatarEmoji || c.avatarImage === msg.avatarImage)
-      );
+      const matchedIndex = characters.findIndex(c => c.id === msg.characterId);
 
       if (matchedIndex !== -1) {
         currentCharacterIndex = matchedIndex;
@@ -543,14 +544,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // update messages to the new side
       chatData.forEach(m => {
-        if (
-          m.name === msg.name &&
-          m.avatarEmoji === m.avatarEmoji &&
-          m.avatarImage === m.avatarImage
-        ) {
-          m.side = newSide;
-        }
-      });
+  if (m.characterId === msg.characterId) {
+    m.side = newSide;
+  }
+});
 
 
       saveAll();
@@ -672,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const char = characters[currentCharacterIndex];
     const name = nameInput.value.trim() || 'Anon';
     const color = colorInput.value || '#ffffff';
-    const side = currentSide;
+    const side = char.side;
     const avatarEmoji = currentAvatarEmoji;
     const avatarImage = currentAvatarImage;
     const time = getCurrentTime();
@@ -686,28 +683,28 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ✅ Update all previous messages from this character
 chatData.forEach(msg => {
-  if (
-    msg.name === char.name &&
-    ((msg.avatarEmoji && msg.avatarEmoji === char.avatarEmoji) ||
-     (msg.avatarImage && msg.avatarImage === char.avatarImage))
-  ) {
-    msg.side = side;
-    msg.color = color;
+  if (msg.characterId === char.id) {
+    msg.name = char.name;
+    msg.color = char.color;
+    msg.side = char.side;
+    msg.avatarEmoji = char.avatarEmoji;
+    msg.avatarImage = char.avatarImage;
   }
 });
 
 
+
     // Save chat message
     chatData.push({
-      characterId: char.id,
-      name,
+      name: char.name,
       message: msgText,
-      color,
-      side,
-      avatarEmoji,
-      avatarImage,
-      time,
+      color: char.color,
+      side: char.side,
+      avatarEmoji:currentAvatarEmoji,
+      avatarImage:currentAvatarImage,
+      time:getCurrentTime(),
       timestamp: Date.now(),
+      characterId: char.id,
     });
 
     // Save & render
@@ -743,11 +740,8 @@ chatData.forEach(msg => {
       const char = characters[currentCharacterIndex];
       characters[currentCharacterIndex].side = currentSide;
     
-      chatData.forEach(msg => {
-      if (msg.characterId === char.id) {
-        msg.side = currentSide;
-      }
-    });
+      applyCharacterChangesToMessages(char);
+
 
     saveAll();
     renderCharacters();
@@ -768,14 +762,10 @@ chatData.forEach(msg => {
         char.avatarEmoji = currentAvatarEmoji;
         char.avatarImage = null;
 
-        chatData.forEach(msg => {
-          if (msg.characterId === char.id) {
-           msg.avatarEmoji = currentAvatarEmoji;
-           msg.avatarImage = null;
-        }
-      });
+        applyCharacterChangesToMessages(char);
 
         saveAll();
+        renderChat();
         renderCharacters();
       }
     }
@@ -803,7 +793,9 @@ chatData.forEach(msg => {
       if (currentCharacterIndex >= 0 && currentCharacterIndex < characters.length) {
         characters[currentCharacterIndex].avatarImage = currentAvatarImage;
         characters[currentCharacterIndex].avatarEmoji = null;
+        applyCharacterChangesToMessages(characters[currentCharacterIndex]);
         saveAll();
+        renderChat();
         renderCharacters();
       }
     };
@@ -822,8 +814,12 @@ chatData.forEach(msg => {
   // Color input change
   colorInput.addEventListener('input', () => {
     if (currentCharacterIndex >= 0 && currentCharacterIndex < characters.length) {
-      characters[currentCharacterIndex].color = colorInput.value;
+      const char = characters[currentCharacterIndex];
+      char.color = colorInput.value;
+      applyCharacterChangesToMessages(char);
+      r = colorInput.value;
       saveAll();
+      renderChat();
       renderCharacters();
     }
   });
@@ -835,12 +831,13 @@ chatData.forEach(msg => {
       return;
     }
     const newChar = {
-      id: Date.now() + Math.random(),
+      
       name: 'Anon',
       color: '#ffffff',
       avatarEmoji: '🙂',
       avatarImage: null,
       side: 'right',
+      id: Date.now() + Math.random(),
     };
 
     characters.push(newChar);
@@ -880,6 +877,17 @@ chatData.forEach(msg => {
     }
   });
 
+  function applyCharacterChangesToMessages(char) {
+  chatData.forEach(msg => {
+    if (msg.characterId === char.id) {
+      msg.name = char.name;
+      msg.color = char.color;
+      msg.side = char.side;
+      msg.avatarEmoji = char.avatarEmoji;
+      msg.avatarImage = char.avatarImage;
+    }
+  });
+}
   // Initialize app
   function init() {
     // If no characters, add one by default
